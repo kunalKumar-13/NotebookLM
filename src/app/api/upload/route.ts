@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processAndIndexDocument } from "@/lib/rag";
-import pdfParse from "pdf-parse";
+import { Document } from "@langchain/core/documents";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
+    // Polyfills for pdf-parse in Node environments
+    if (typeof global !== "undefined" && !(global as any).DOMMatrix) {
+      (global as any).DOMMatrix = class DOMMatrix {};
+    }
+    if (typeof global !== "undefined" && !(global as any).DOMPoint) {
+      (global as any).DOMPoint = class DOMPoint {};
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
 
@@ -12,16 +22,16 @@ export async function POST(req: NextRequest) {
     }
 
     let text = "";
-    
-    // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+      const pdfParseModule = await import("pdf-parse");
+      const pdfParse = pdfParseModule.default || pdfParseModule;
+      
       const pdfData = await pdfParse(buffer);
       text = pdfData.text;
     } else {
-      // Assume text-based file
       text = buffer.toString("utf-8");
     }
 
@@ -29,7 +39,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not extract text from file" }, { status: 400 });
     }
 
-    const result = await processAndIndexDocument(text, file.name);
+    const docs = [new Document({ pageContent: text, metadata: { source: file.name } })];
+    const result = await processAndIndexDocument(docs, file.name);
 
     return NextResponse.json({ 
       success: true, 
