@@ -9,7 +9,7 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [isIndexed, setIsIndexed] = useState(false);
   const [query, setQuery] = useState("");
-  const [messages, setMessages] = useState<{role: 'user'|'ai', content: string}[]>([]);
+  const [messages, setMessages] = useState<{role: 'user'|'ai', content: string, sources?: string[]}[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -75,7 +75,7 @@ export default function Home() {
       const data = await res.json();
       
       if (data.success) {
-        setMessages(prev => [...prev, { role: 'ai', content: data.answer }]);
+        setMessages(prev => [...prev, { role: 'ai', content: data.answer, sources: data.sources }]);
       } else {
         setMessages(prev => [...prev, { role: 'ai', content: `Error: ${data.error}` }]);
       }
@@ -215,8 +215,25 @@ export default function Home() {
                           ? 'bg-white text-black rounded-br-sm' 
                           : 'bg-white/5 border border-white/10 text-white/90 rounded-bl-sm backdrop-blur-md'
                       }`}
-                      dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} // Basic markdown bold
-                    />
+                    >
+                      <div dangerouslySetInnerHTML={{ __html: msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                      
+                      {msg.sources && msg.sources.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+                          <p className="text-[10px] uppercase tracking-widest text-white/30 font-medium">Sources Cited</p>
+                          <div className="flex flex-wrap gap-2">
+                            {msg.sources.map((source, sIdx) => (
+                              <div key={sIdx} className="px-2 py-1 bg-white/5 rounded-lg text-[11px] text-white/50 border border-white/5 hover:bg-white/10 transition-colors cursor-help group relative">
+                                Source {sIdx + 1}
+                                <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-[#111] border border-white/10 rounded-xl text-[11px] text-white/70 leading-relaxed shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 backdrop-blur-xl">
+                                  "{source.slice(0, 200)}..."
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </motion.div>
                 ))}
                 {isTyping && (
